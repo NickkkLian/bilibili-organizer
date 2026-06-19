@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B 站视频整理归档 · Bilibili Organizer</title>
+<meta name="description" content="粘贴 B 站视频链接，自动抓取信息、按分区归档并多设备云同步。">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="hero">
+  <h1>📺 B 站视频整理归档</h1>
+  <p class="sub">粘贴链接 → 自动抓取信息 → 按分区归档 → 多设备同步</p>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <div class="row">
+      <input id="urlInput" type="url" placeholder="粘贴 B 站视频链接，如 https://www.bilibili.com/video/BV… 或 BV 号">
+      <button id="fetchBtn" class="btn btn--primary">整理</button>
+    </div>
+    <p class="hint">走 B 站公开接口（JSONP，无需登录）抓标题/简介/封面/UP主/分区/数据。视频「口播字幕 / AI 总结」需另接读视频后端（见 README）。</p>
+    <div id="status" class="status" style="display:none"></div>
+  </section>
+
+  <section id="result" class="result" style="display:none"></section>
+
+  <section class="card">
+    <div class="lib__head">
+      <h2>🗂️ 我的归档库 <span id="libCount" class="muted"></span></h2>
+      <div class="lib__tools">
+        <button id="syncStatus" class="sync-pill" title="云同步状态（点击设置）">● 本地</button>
+        <input id="search" type="search" placeholder="搜索标题 / UP主 / 简介">
+        <button id="syncBtn" class="btn btn--ghost">🔄 同步</button>
+        <button id="settingsBtn" class="btn btn--ghost">⚙️</button>
+        <button id="exportMd" class="btn btn--ghost">导出 MD</button>
+        <button id="exportJson" class="btn btn--ghost">导出 JSON</button>
+        <button id="clearAll" class="btn btn--danger">清空</button>
+      </div>
+    </div>
+
+    <div id="settingsPanel" class="settings" style="display:none">
+      <p class="hint">归档库同步到私有仓库 <code id="repoLabel"></code>，多设备共享。令牌仅存于本机浏览器（与导航站共用 <code>pha-config</code>），<strong>绝不写入任何仓库</strong>。</p>
+      <div class="row">
+        <input id="tokenInput" type="password" autocomplete="off" placeholder="GitHub Token（对 Database 仓库 Contents 读写）">
+        <button id="saveTokenBtn" class="btn btn--primary">保存并连接</button>
+      </div>
+      <div id="settingsStatus" class="hint"></div>
+    </div>
+
+    <div id="catFilter" class="chips"></div>
+    <div id="libList" class="lib__list"></div>
+  </section>
+</main>
+
+<footer class="foot">本地缓存 + 私有仓库云同步 · 令牌只存本机浏览器</footer>
+
+<script src="js/classify.js"></script>
+<script src="js/parse.js"></script>
+<script src="js/store.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
