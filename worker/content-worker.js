@@ -50,8 +50,17 @@ function md5(s){
   return b2h(a)+b2h(b)+b2h(c)+b2h(d);
 }
 
-function biliGet(url, sessdata){
-  return fetch(url, { headers: { 'User-Agent': UA, 'Referer': 'https://www.bilibili.com/', 'Cookie': sessdata ? ('SESSDATA=' + sessdata) : '' } }).then(function (r) { return r.json(); });
+// 伪装：带 buvid3/b_nut cookie + 浏览器头，尽量绕过 B 站对数据中心 IP 的风控
+var BUVID3 = ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID().toUpperCase() : (Date.now().toString(16) + Math.random().toString(16).slice(2))) + 'infoc';
+async function biliGet(url, sessdata){
+  var cookie = 'buvid3=' + BUVID3 + '; b_nut=' + Math.floor(Date.now() / 1000) + (sessdata ? ('; SESSDATA=' + sessdata) : '');
+  var r = await fetch(url, { headers: {
+    'User-Agent': UA, 'Referer': 'https://www.bilibili.com/', 'Origin': 'https://www.bilibili.com',
+    'Accept': 'application/json, text/plain, */*', 'Accept-Language': 'zh-CN,zh;q=0.9', 'Cookie': cookie
+  } });
+  var t = await r.text();
+  if (/^\s*</.test(t)) throw new Error('B站返回了网页而非JSON（风控/CF的IP被拦）');
+  return JSON.parse(t);
 }
 async function getMixinKey(sessdata){
   var nav = await biliGet('https://api.bilibili.com/x/web-interface/nav', sessdata);
