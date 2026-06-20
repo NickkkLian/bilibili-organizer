@@ -77,3 +77,21 @@ input:focus,textarea:focus{outline:none;border-color:var(--pink)}
   .vid{flex-direction:column}
   .vid__cover{flex-basis:auto}
 }
+
+/* ---------- AI 整理成合集 / 多选 ---------- */
+.badge--soft{background:#f1f3f5;color:var(--muted);font-weight:500}
+.settings__hr{border:none;border-top:1px dashed var(--line);margin:14px 0}
+.selbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:14px}
+.selbar__sel{width:auto;min-width:150px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px}
+.note__sel{display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:12px;color:var(--muted);cursor:pointer}
+.note__sel input{width:auto}
+.vid.is-sel{border-color:var(--pink);box-shadow:0 0 0 2px var(--soft)}
+.comp{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fff}
+.comp__meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+.comp__title{margin:2px 0 4px;font-size:19px;word-break:break-word}
+.comp__summary{color:#444;font-size:13.5px;background:#fafbfc;border-left:3px solid var(--pink);border-radius:6px;padding:8px 10px;margin:6px 0 4px;white-space:pre-wrap}
+.comp__sec{margin:14px 0}
+.comp__sec h4{margin:0 0 6px;font-size:15px}
+.comp__sec .body{white-space:pre-wrap;word-break:break-word;font-size:14px}
+.comp__src{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.comp__src a{font-size:11px;color:var(--muted);background:#f1f3f5;border-radius:6px;padding:2px 8px;text-decoration:none}

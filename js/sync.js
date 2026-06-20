@@ -26,8 +26,8 @@ window.BILI = window.BILI || {};
   function headers(token){ return { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }; }
   function b64encode(str){ var bytes = new TextEncoder().encode(str), bin = ''; for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]); return btoa(bin); }
   function b64decode(b64){ var bin = atob(String(b64).replace(/\s/g, '')); var bytes = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new TextDecoder().decode(bytes); }
-  function emptyDoc(){ return { version: 1, updatedAt: null, notes: [], deleted: [] }; }
-  function normalizeDoc(d){ d = d || {}; return { version: d.version || 1, updatedAt: d.updatedAt || null, notes: Array.isArray(d.notes) ? d.notes : [], deleted: Array.isArray(d.deleted) ? d.deleted : [] }; }
+  function emptyDoc(){ return { version: 1, updatedAt: null, notes: [], deleted: [], compilations: [], deletedComps: [] }; }
+  function normalizeDoc(d){ d = d || {}; return { version: d.version || 1, updatedAt: d.updatedAt || null, notes: Array.isArray(d.notes) ? d.notes : [], deleted: Array.isArray(d.deleted) ? d.deleted : [], compilations: Array.isArray(d.compilations) ? d.compilations : [], deletedComps: Array.isArray(d.deletedComps) ? d.deletedComps : [] }; }
   function contentsUrl(cfg){ return 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + DATA_PATH; }
 
   async function validate(token){
@@ -52,26 +52,31 @@ window.BILI = window.BILI || {};
     if (!r.ok) throw new Error('写入失败 HTTP ' + r.status + (r.status === 409 ? '（版本冲突）' : ''));
     return r.json();
   }
-  function mergeDocs(a, b){
-    a = normalizeDoc(a); b = normalizeDoc(b);
-    var deleted = Array.from(new Set(a.deleted.concat(b.deleted))), del = {};
+  function mergeList(aItems, bItems, aDel, bDel){
+    var deleted = Array.from(new Set((aDel || []).concat(bDel || []))), del = {};
     deleted.forEach(function (id) { del[id] = 1; });
     var byId = {};
-    a.notes.concat(b.notes).forEach(function (n) {
+    (aItems || []).concat(bItems || []).forEach(function (n) {
       if (!n || !n.id || del[n.id]) return;
       var ex = byId[n.id];
       if (!ex || String(n.savedAt || '') >= String(ex.savedAt || '')) byId[n.id] = n;
     });
-    var notes = Object.keys(byId).map(function (k) { return byId[k]; })
+    var items = Object.keys(byId).map(function (k) { return byId[k]; })
       .sort(function (x, y) { return String(y.savedAt || '').localeCompare(String(x.savedAt || '')); });
-    return { version: 1, updatedAt: new Date().toISOString(), notes: notes, deleted: deleted };
+    return { items: items, deleted: deleted };
+  }
+  function mergeDocs(a, b){
+    a = normalizeDoc(a); b = normalizeDoc(b);
+    var n = mergeList(a.notes, b.notes, a.deleted, b.deleted);
+    var c = mergeList(a.compilations, b.compilations, a.deletedComps, b.deletedComps);
+    return { version: 1, updatedAt: new Date().toISOString(), notes: n.items, deleted: n.deleted, compilations: c.items, deletedComps: c.deleted };
   }
   function sig(doc){
-    var n = (doc.notes || []).slice().sort(function (a, b) { return String(a.id).localeCompare(String(b.id)); })
-      .map(function (x) { return JSON.stringify(x); }).join('|');
-    return n + '##' + (doc.deleted || []).slice().sort().join(',');
+    function s(list){ return (list || []).slice().sort(function (a, b) { return String(a.id).localeCompare(String(b.id)); }).map(function (x) { return JSON.stringify(x); }).join('|'); }
+    return s(doc.notes) + '##' + (doc.deleted || []).slice().sort().join(',') +
+      '@@' + s(doc.compilations) + '##' + (doc.deletedComps || []).slice().sort().join(',');
   }
-  function localDoc(){ return { version: 1, notes: B.store.getAll(), deleted: B.store.getDeleted() }; }
+  function localDoc(){ return { version: 1, notes: B.store.getAll(), deleted: B.store.getDeleted(), compilations: B.store.getComps(), deletedComps: B.store.getCompsDeleted() }; }
 
   async function sync(){
     var cfg = getConfig();
@@ -83,6 +88,7 @@ window.BILI = window.BILI || {};
       catch (e) { var fresh = await getFile(cfg); merged = mergeDocs(fresh.doc, localDoc()); await putFile(cfg, merged, fresh.sha, 'bilibili-organizer: sync (retry)'); }
     }
     B.store.replaceAll(merged.notes); B.store.setDeleted(merged.deleted);
+    B.store.replaceAllComps(merged.compilations); B.store.setCompsDeleted(merged.deletedComps);
     return merged;
   }
 

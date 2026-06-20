@@ -46,19 +46,44 @@
         <button id="saveTokenBtn" class="btn btn--primary">保存并连接</button>
       </div>
       <div id="settingsStatus" class="hint"></div>
+
+      <hr class="settings__hr">
+      <p class="hint">「✨ AI 整理成合集」用 Claude API 把视频字幕整理成通顺的分板块长文（补标点、去重复、归纳要点）。API 令牌仅存本机浏览器、<strong>绝不写入仓库</strong>；点一次约几美分。<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">获取 Key ↗</a></p>
+      <div class="row">
+        <input id="aiKeyInput" type="password" autocomplete="off" placeholder="Anthropic API Key（sk-ant-…）">
+        <select id="aiModel" class="selbar__sel"></select>
+        <button id="saveAiBtn" class="btn btn--primary">保存</button>
+      </div>
+      <div id="aiStatus" class="hint"></div>
     </div>
 
     <div id="catFilter" class="chips"></div>
+
+    <div id="selBar" class="selbar" style="display:none">
+      <span id="selCount" class="muted"></span>
+      <button id="consolidateBtn" class="btn btn--primary">✨ AI 整理成合集</button>
+      <select id="addToComp" class="selbar__sel"><option value="">加入已有合集…</option></select>
+      <button id="clearSel" class="btn btn--ghost">取消选择</button>
+    </div>
+
     <div id="libList" class="lib__list"></div>
+  </section>
+
+  <section class="card" id="compsCard">
+    <div class="lib__head">
+      <h2>🧩 我的合集 <span id="compCount" class="muted"></span></h2>
+    </div>
+    <div id="compList" class="lib__list"></div>
   </section>
 </main>
 
-<footer class="foot">本地缓存 + 私有仓库云同步 · 令牌只存本机浏览器</footer>
+<footer class="foot">本地缓存 + 私有仓库云同步 + AI 整理合集 · 令牌只存本机浏览器</footer>
 
 <script src="js/classify.js"></script>
 <script src="js/parse.js"></script>
 <script src="js/store.js"></script>
 <script src="js/sync.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

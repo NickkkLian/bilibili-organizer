@@ -27,8 +27,28 @@ window.BILI = window.BILI || {};
   function clear(){ addDeleted(getAll().map(function (n) { return n.id; })); setAll([]); }
   function replaceAll(notes){ setAll(notes || []); }
 
+  // ---------- 合集（AI 整理出的多视频综合长文） ----------
+  var CKEY = 'bili_comps_v1';
+  var CDKEY = 'bili_comps_deleted_v1';
+  function getComps(){ try { return JSON.parse(localStorage.getItem(CKEY) || '[]'); } catch (e) { return []; } }
+  function setComps(list){ localStorage.setItem(CKEY, JSON.stringify(list)); }
+  function getCompsDeleted(){ try { return JSON.parse(localStorage.getItem(CDKEY) || '[]'); } catch (e) { return []; } }
+  function setCompsDeleted(ids){ localStorage.setItem(CDKEY, JSON.stringify(Array.from(new Set(ids)))); }
+  function saveComp(comp){
+    var list = getComps();
+    var rec = Object.assign({}, comp, { id: comp.id || ('c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), savedAt: new Date().toISOString() });
+    var idx = list.findIndex(function (c) { return c.id === rec.id; });
+    if (idx !== -1) list[idx] = rec; else list.unshift(rec);
+    setComps(list);
+    return rec;
+  }
+  function removeComp(id){ setComps(getComps().filter(function (c) { return c.id !== id; })); setCompsDeleted(getCompsDeleted().concat([id])); }
+  function replaceAllComps(list){ setComps(list || []); }
+
   B.store = {
     getAll: getAll, save: save, remove: remove, clear: clear,
-    getDeleted: getDeleted, setDeleted: setDeleted, replaceAll: replaceAll
+    getDeleted: getDeleted, setDeleted: setDeleted, replaceAll: replaceAll,
+    getComps: getComps, saveComp: saveComp, removeComp: removeComp, replaceAllComps: replaceAllComps,
+    getCompsDeleted: getCompsDeleted, setCompsDeleted: setCompsDeleted
   };
 })(window.BILI);
