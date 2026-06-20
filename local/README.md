@@ -2,12 +2,13 @@
 
 在你 **Mac** 上跑（住宅 IP，不会被 B 站风控）：给 B 站链接 → 抓元数据 + 字幕（没字幕就本地 whisper 转写）→ 写进私有库 `Database/bilibili.json`，网页版归档库直接显示。
 
-## 一次性安装
+## 一次性安装（不用 Homebrew）
 ```bash
-brew install yt-dlp ffmpeg
-pip3 install faster-whisper
+pip3 install yt-dlp faster-whisper
 ```
-（git + SSH 已配好，无需令牌。）
+- 只装 `yt-dlp` 也行——够抓「有字幕」的视频；`faster-whisper` 仅用于「没字幕 → 本地转写」，可后补。
+- 若 pip3 报 `externally-managed-environment`：加 `--user`，即 `pip3 install --user yt-dlp faster-whisper`。
+- 不需要 ffmpeg（字幕原样解析、whisper 自带解码）；git + SSH 已配好，无需令牌。
 
 ## 用法
 ```bash

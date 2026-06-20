@@ -4,10 +4,10 @@
 B 站内容抓取 · 本地网页版。在你 Mac 上跑，浏览器里操作，不用碰终端。
 启动后自动开浏览器 → 粘 B 站链接 → 看着进度抓字幕/转写 → 写进 Database/bilibili.json。
 
-依赖（一次性）：  brew install yt-dlp ffmpeg   &&   pip3 install faster-whisper
+依赖（一次性）：  pip3 install yt-dlp faster-whisper      （不用 Homebrew、不用 ffmpeg）
 启动：           python3 bili-web.py     （或双击同目录的「启动.command」）
 """
-import os, re, json, subprocess, tempfile, shutil, datetime, secrets, urllib.request, urllib.parse, webbrowser, threading
+import sys, os, re, json, subprocess, tempfile, shutil, datetime, secrets, urllib.request, urllib.parse, webbrowser, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 REPO = "git@github.com:NickkkLian/Database.git"
@@ -16,6 +16,11 @@ PORT = int(os.environ.get("BILI_PORT", "8765"))
 COOKIES_BROWSER = os.environ.get("BILI_COOKIES_BROWSER", "chrome")
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+YTDLP = [sys.executable, "-m", "yt_dlp"]   # 走 python -m，免去 PATH 上找不到 yt-dlp 二进制 / 不用 Homebrew
+def ytdlp_cmd(extra):
+    c = list(YTDLP)
+    if COOKIES_BROWSER: c += ["--cookies-from-browser", COOKIES_BROWSER]
+    return c + extra
 
 def now_iso(): return datetime.datetime.now(datetime.timezone.utc).isoformat()
 def fmt_dur(sec):
@@ -48,31 +53,42 @@ def bili_view(idtype, idval):
         "source": "bili",
     }
 
-def srt_to_text(srt):
-    out = []
-    for ln in srt.splitlines():
+def extract_sub_text(path):
+    raw = open(path, encoding="utf-8", errors="ignore").read()
+    if path.endswith((".json", ".json3", ".srv3")):          # B 站 AI 字幕常是 json
+        try:
+            body = (json.loads(raw) or {}).get("body") or []
+            txt = "\n".join((seg.get("content") or "").strip() for seg in body if (seg.get("content") or "").strip())
+            if txt.strip(): return txt
+        except Exception: pass
+    out = []                                                  # srt / vtt / ass 兜底按行
+    for ln in raw.splitlines():
         ln = ln.strip()
         if not ln or ln.isdigit() or "-->" in ln: continue
-        if not out or out[-1] != ln: out.append(ln)
+        if ln == "WEBVTT" or ln.startswith(("NOTE", "Kind:", "Language:")): continue
+        ln = re.sub(r"<[^>]+>", "", ln).strip()               # 去 <c>/<时间戳> 标签
+        if ln and (not out or out[-1] != ln): out.append(ln)
     return "\n".join(out)
 
 def get_subtitle(url, tmp):
-    cmd = ["yt-dlp", "--skip-download", "--write-subs", "--write-auto-subs",
-           "--sub-langs", "ai-zh,zh-Hans,zh-CN,zh,en,all", "--convert-subs", "srt",
-           "-o", os.path.join(tmp, "%(id)s.%(ext)s"), url]
-    if COOKIES_BROWSER: cmd[1:1] = ["--cookies-from-browser", COOKIES_BROWSER]
+    cmd = ytdlp_cmd(["--skip-download", "--write-subs", "--write-auto-subs",
+                     "--sub-langs", "ai-zh,zh-Hans,zh-CN,zh,en,all",
+                     "-o", os.path.join(tmp, "%(id)s.%(ext)s"), url])   # 不转 srt，免依赖 ffmpeg
     subprocess.run(cmd, capture_output=True)
-    srts = sorted(f for f in os.listdir(tmp) if f.endswith(".srt"))
-    if not srts: return ""
-    with open(os.path.join(tmp, srts[0]), encoding="utf-8", errors="ignore") as f:
-        return srt_to_text(f.read())
+    subs = [f for f in os.listdir(tmp) if re.search(r"\.(srt|vtt|ass|json3?|srv3)$", f)]
+    subs.sort(key=lambda f: (0 if "zh" in f else 1, f))       # 优先中文
+    for f in subs:
+        txt = extract_sub_text(os.path.join(tmp, f))
+        if txt.strip(): return txt
+    return ""
 
 def whisper_transcribe(url, tmp, log):
+    try:
+        from faster_whisper import WhisperModel
+    except ImportError:
+        raise RuntimeError("这个视频没有现成字幕；要本地转写请先装： pip3 install faster-whisper")
     audio = os.path.join(tmp, "audio.m4a")
-    cmd = ["yt-dlp", "-f", "bestaudio", "-o", audio, url]
-    if COOKIES_BROWSER: cmd[1:1] = ["--cookies-from-browser", COOKIES_BROWSER]
-    subprocess.run(cmd, check=True, capture_output=True)
-    from faster_whisper import WhisperModel
+    subprocess.run(ytdlp_cmd(["-f", "bestaudio", "-o", audio, url]), check=True, capture_output=True)
     log(f"载入模型 {WHISPER_MODEL}（首次会下载，约几百 MB）…")
     model = WhisperModel(WHISPER_MODEL, device="auto", compute_type="auto")
     segments, _ = model.transcribe(audio, language="zh", vad_filter=True)

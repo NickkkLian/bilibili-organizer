@@ -10,8 +10,7 @@
   - 结果 upsert 进私有库 Database/bilibili.json（SSH 推送），网页版 A 立刻能看。
 
 依赖（一次性）：
-  brew install yt-dlp ffmpeg
-  pip3 install faster-whisper
+  pip3 install yt-dlp faster-whisper      # 不用 Homebrew、不用 ffmpeg
 用法：
   python3 bili-fetch.py "https://www.bilibili.com/video/BVxxxx" [更多链接...]
 可选环境变量：
@@ -25,6 +24,11 @@ DATA = "bilibili.json"
 COOKIES_BROWSER = os.environ.get("BILI_COOKIES_BROWSER", "chrome")
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+YTDLP = [sys.executable, "-m", "yt_dlp"]   # 走 python -m，免去 PATH 找不到 yt-dlp / 不用 Homebrew
+def ytdlp_cmd(extra):
+    c = list(YTDLP)
+    if COOKIES_BROWSER: c += ["--cookies-from-browser", COOKIES_BROWSER]
+    return c + extra
 
 def now_iso(): return datetime.datetime.now(datetime.timezone.utc).isoformat()
 def fmt_dur(sec):
@@ -59,31 +63,42 @@ def bili_view(idtype, idval):
         "source": "bili",
     }
 
-def srt_to_text(srt):
-    out = []
-    for ln in srt.splitlines():
+def extract_sub_text(path):
+    raw = open(path, encoding="utf-8", errors="ignore").read()
+    if path.endswith((".json", ".json3", ".srv3")):          # B 站 AI 字幕常是 json
+        try:
+            body = (json.loads(raw) or {}).get("body") or []
+            txt = "\n".join((seg.get("content") or "").strip() for seg in body if (seg.get("content") or "").strip())
+            if txt.strip(): return txt
+        except Exception: pass
+    out = []                                                  # srt / vtt / ass 兜底按行
+    for ln in raw.splitlines():
         ln = ln.strip()
         if not ln or ln.isdigit() or "-->" in ln: continue
-        if not out or out[-1] != ln: out.append(ln)
+        if ln == "WEBVTT" or ln.startswith(("NOTE", "Kind:", "Language:")): continue
+        ln = re.sub(r"<[^>]+>", "", ln).strip()               # 去 <c>/<时间戳> 标签
+        if ln and (not out or out[-1] != ln): out.append(ln)
     return "\n".join(out)
 
 def get_subtitle(url, tmp):
-    cmd = ["yt-dlp", "--skip-download", "--write-subs", "--write-auto-subs",
-           "--sub-langs", "ai-zh,zh-Hans,zh-CN,zh,en,all", "--convert-subs", "srt",
-           "-o", os.path.join(tmp, "%(id)s.%(ext)s"), url]
-    if COOKIES_BROWSER: cmd[1:1] = ["--cookies-from-browser", COOKIES_BROWSER]
+    cmd = ytdlp_cmd(["--skip-download", "--write-subs", "--write-auto-subs",
+                     "--sub-langs", "ai-zh,zh-Hans,zh-CN,zh,en,all",
+                     "-o", os.path.join(tmp, "%(id)s.%(ext)s"), url])   # 不转 srt，免依赖 ffmpeg
     subprocess.run(cmd, capture_output=True)
-    srts = sorted(f for f in os.listdir(tmp) if f.endswith(".srt"))
-    if not srts: return ""
-    with open(os.path.join(tmp, srts[0]), encoding="utf-8", errors="ignore") as f:
-        return srt_to_text(f.read())
+    subs = [f for f in os.listdir(tmp) if re.search(r"\.(srt|vtt|ass|json3?|srv3)$", f)]
+    subs.sort(key=lambda f: (0 if "zh" in f else 1, f))       # 优先中文
+    for f in subs:
+        txt = extract_sub_text(os.path.join(tmp, f))
+        if txt.strip(): return txt
+    return ""
 
 def whisper_transcribe(url, tmp):
+    try:
+        from faster_whisper import WhisperModel  # 仅在需要转写时导入
+    except ImportError:
+        raise SystemExit("没现成字幕，且未装转写引擎。要本地转写请先： pip3 install faster-whisper")
     audio = os.path.join(tmp, "audio.m4a")
-    cmd = ["yt-dlp", "-f", "bestaudio", "-o", audio, url]
-    if COOKIES_BROWSER: cmd[1:1] = ["--cookies-from-browser", COOKIES_BROWSER]
-    subprocess.run(cmd, check=True)
-    from faster_whisper import WhisperModel  # 仅在需要转写时导入
+    subprocess.run(ytdlp_cmd(["-f", "bestaudio", "-o", audio, url]), check=True)
     print(f"    本地转写中（模型 {WHISPER_MODEL}，可能几分钟）…", flush=True)
     model = WhisperModel(WHISPER_MODEL, device="auto", compute_type="auto")
     segments, _ = model.transcribe(audio, language="zh", vad_filter=True)
