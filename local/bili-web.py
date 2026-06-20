@@ -179,7 +179,7 @@ function run(){var url=u.value.trim();if(!url)return;log.textContent='';result.i
  es.addEventListener('log',function(e){log.textContent+=JSON.parse(e.data)+'\\n';log.scrollTop=log.scrollHeight;});
  es.addEventListener('fail',function(e){log.textContent+='✗ '+JSON.parse(e.data)+'\\n';es.close();go.disabled=false;});
  es.addEventListener('done',function(e){var n=JSON.parse(e.data);
-   result.innerHTML='<div class=card><b>'+esc(n.title)+'</b><div class=meta>'+esc(n.tname||'')+' · UP '+esc(n.author||'')+'</div><pre>'+esc((n.transcript||'(没拿到内容)').slice(0,2000))+'</pre><a href="https://nickkklian.github.io/bilibili-organizer/" target=_blank>去归档库看 →</a></div>';
+   result.innerHTML='<div class=card><b>'+esc(n.title)+'</b><div class=meta>'+esc(n.tname||'')+' · UP '+esc(n.author||'')+' · 内容 '+((n.transcript||'').length)+' 字</div><pre>'+esc(n.transcript||'(没拿到内容)')+'</pre><a href="https://nickkklian.github.io/bilibili-organizer/" target=_blank>去归档库看 →</a></div>';
    es.close();go.disabled=false;u.value='';});
  es.onerror=function(){es.close();go.disabled=false;};
 }

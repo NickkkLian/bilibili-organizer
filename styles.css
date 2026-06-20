@@ -45,7 +45,7 @@ input:focus,textarea:focus{outline:none;border-color:var(--pink)}
 .vid__up{color:var(--muted);font-size:13px}
 .vid__stat{color:var(--muted);font-size:12.5px;margin:6px 0}
 .vid__desc{white-space:pre-wrap;word-break:break-word;background:#fafbfc;border:1px solid var(--line);
-  border-radius:10px;padding:10px;font-size:13px;font-family:inherit;max-height:160px;overflow:auto;margin:8px 0}
+  border-radius:10px;padding:10px;font-size:13px;font-family:inherit;max-height:340px;overflow:auto;margin:8px 0}
 .note__actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 
 /* 库 */
