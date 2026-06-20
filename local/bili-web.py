@@ -72,15 +72,18 @@ def extract_sub_text(path):
 
 def get_subtitle(url, tmp):
     cmd = ytdlp_cmd(["--skip-download", "--write-subs", "--write-auto-subs",
-                     "--sub-langs", "ai-zh,zh-Hans,zh-CN,zh,en,all",
+                     "--sub-langs", "ai-zh,zh-Hans,zh-Hant,zh-CN,zh",   # 只要中文！别用 all（会混进 ai-zh-ar 等机翻）
                      "-o", os.path.join(tmp, "%(id)s.%(ext)s"), url])   # 不转 srt，免依赖 ffmpeg
     subprocess.run(cmd, capture_output=True)
     subs = [f for f in os.listdir(tmp) if re.search(r"\.(srt|vtt|ass|json3?|srv3)$", f)]
-    subs.sort(key=lambda f: (0 if "zh" in f else 1, f))       # 优先中文
+    subs.sort(key=lambda f: (0 if "zh" in f else 1, f))
+    best = ""
     for f in subs:
         txt = extract_sub_text(os.path.join(tmp, f))
-        if txt.strip(): return txt
-    return ""
+        if not txt.strip(): continue
+        if re.search(r"[一-鿿]", txt): return txt     # 含汉字 → 就它了
+        best = best or txt                                    # 兜底：万一只有外文字幕
+    return best
 
 def whisper_transcribe(url, tmp, log):
     try:
