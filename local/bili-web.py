@@ -102,25 +102,56 @@ def whisper_transcribe(url, tmp, log):
         if (i + 1) % 10 == 0: log(f"…已转写 {i + 1} 段")
     return "\n".join(parts)
 
+PENDING = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_pending.json")
+def load_pending():
+    try: return json.load(open(PENDING, encoding="utf-8"))
+    except Exception: return []
+def save_pending(note):
+    items = [n for n in load_pending() if n.get("bvid") != note.get("bvid")]
+    items.append(note)
+    json.dump(items, open(PENDING, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+def clear_pending():
+    try: os.remove(PENDING)
+    except OSError: pass
+
+def _apply(doc, note):
+    doc.setdefault("notes", [])
+    ex = next((n for n in doc["notes"] if n.get("bvid") == note.get("bvid")), None)
+    if ex:
+        nid = ex.get("id"); ex.clear(); ex.update(note); ex["id"] = nid; ex["savedAt"] = now_iso()
+    else:
+        note = dict(note); note["id"] = note.get("id") or ("b" + secrets.token_hex(5)); note["savedAt"] = now_iso(); doc["notes"].insert(0, note)
+
+def _git(args, **kw):
+    p = subprocess.run(["git"] + args, capture_output=True, text=True, **kw)
+    if p.returncode != 0:
+        raise RuntimeError((p.stderr or p.stdout or "").strip()[:400])
+    return p
+
 def upsert(note):
     work = tempfile.mkdtemp(prefix="bilidb_")
     try:
-        subprocess.run(["git", "clone", "--depth", "1", "--filter=blob:none", REPO, work], check=True, capture_output=True)
+        try:
+            _git(["clone", "--depth", "1", "--filter=blob:none", REPO, work])
+        except Exception as e:
+            save_pending(note)
+            raise RuntimeError("拉取 Database 失败（SSH/网络）：" + str(e) + "\n→ 这条含字幕已暂存 local/_pending.json，不会丢；修好后下次抓取会自动补推。")
         path = os.path.join(work, DATA)
         doc = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {"version": 1, "updatedAt": None, "notes": [], "deleted": []}
-        doc.setdefault("notes", [])
-        ex = next((n for n in doc["notes"] if n.get("bvid") == note["bvid"]), None)
-        if ex:
-            nid = ex.get("id"); ex.clear(); ex.update(note); ex["id"] = nid; ex["savedAt"] = now_iso()
-        else:
-            note["id"] = "b" + secrets.token_hex(5); note["savedAt"] = now_iso(); doc["notes"].insert(0, note)
+        for n in load_pending() + [note]:           # 先把上次没推成功的一起补上
+            _apply(doc, n)
         doc["updatedAt"] = now_iso()
         json.dump(doc, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
         env = {**os.environ, "GIT_AUTHOR_NAME": "NickkkLian", "GIT_AUTHOR_EMAIL": "270510432+NickkkLian@users.noreply.github.com",
                "GIT_COMMITTER_NAME": "NickkkLian", "GIT_COMMITTER_EMAIL": "270510432+NickkkLian@users.noreply.github.com"}
-        subprocess.run(["git", "-C", work, "add", DATA], check=True)
-        subprocess.run(["git", "-C", work, "commit", "-q", "-m", "bili local: " + note["title"][:40]], check=True, env=env)
-        subprocess.run(["git", "-C", work, "push", "-q", "origin", "HEAD:main"], check=True)
+        _git(["-C", work, "add", DATA])
+        _git(["-C", work, "commit", "-m", "bili local: " + note["title"][:40]], env=env)
+        try:
+            _git(["-C", work, "push", "origin", "HEAD:main"])
+        except Exception as e:
+            save_pending(note)
+            raise RuntimeError("git push 失败：" + str(e) + "\n→ 这条含字幕已暂存 local/_pending.json，不会丢；修好推送权限后下次抓取会自动补推。")
+        clear_pending()                              # 全部推送成功 → 清空暂存
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

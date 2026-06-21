@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# 本地暂存（push 失败时保住字幕，勿入库）
+_pending.json
