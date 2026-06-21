@@ -6,6 +6,7 @@ window.BILI = window.BILI || {};
   var currentNote = null;
   var activeFilter = 'all';
   var selectedIds = new Set();   // 勾选用于「AI 整理成合集」的视频 id
+  var viewArchived = false;      // 归档视图开关：整理过的视频自动归档到这里
 
   function setStatus(msg, type){ els.status.textContent = msg || ''; els.status.className = 'status' + (type ? ' status--' + type : ''); els.status.style.display = msg ? 'block' : 'none'; }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
@@ -67,23 +68,32 @@ window.BILI = window.BILI || {};
   }
   function renderLibrary(){
     var all = B.store.getAll();
-    buildFilters(all);
+    var base = all.filter(function (n) { return viewArchived ? n.archived : !n.archived; });
+    var archivedCount = all.filter(function (n) { return n.archived; }).length;
+    if (els.archCount) els.archCount.textContent = archivedCount;
+    if (els.archToggle) els.archToggle.classList.toggle('chip--on', viewArchived);
+    buildFilters(base);
     var q = (els.search.value || '').trim().toLowerCase();
-    var list = all.filter(function (n) {
+    var list = base.filter(function (n) {
       var cat = n.category || (n.tname || '其它');
       if (activeFilter !== 'all' && cat !== activeFilter) return false;
       if (!q) return true;
       return (((n.title || '') + ' ' + (n.author || '') + ' ' + (n.body || '') + ' ' + (n.transcript || '')).toLowerCase()).indexOf(q) !== -1;
     });
-    els.libCount.textContent = list.length + ' / ' + all.length + ' 个';
-    if (!all.length) { els.libList.innerHTML = '<p class="empty">还没有收藏。粘贴一个 B 站视频链接，点「整理」后收藏。</p>'; return; }
+    els.libCount.textContent = list.length + ' / ' + base.length + ' 个' + (viewArchived ? '（已归档）' : '');
+    if (!base.length) { els.libList.innerHTML = '<p class="empty">' + (viewArchived ? '还没有已归档的视频。整理成合集后，作为素材的视频会自动归档到这里。' : '还没有收藏。粘贴一个 B 站视频链接，点「整理」后收藏。') + '</p>'; return; }
     if (!list.length) { els.libList.innerHTML = '<p class="empty">没有匹配的视频。</p>'; return; }
     els.libList.innerHTML = list.map(function (n) {
-      return videoCardHtml(n,
-        '<button class="btn btn--ghost" data-act="copy-lib" data-id="' + n.id + '">复制 MD</button>' +
-        '<button class="btn btn--ghost" data-act="open" data-id="' + n.id + '">去 B 站</button>' +
-        '<button class="btn btn--danger" data-act="del" data-id="' + n.id + '">删除</button>',
-        { selectable: true, selected: selectedIds.has(n.id) });
+      var actions = viewArchived
+        ? '<button class="btn btn--ghost" data-act="copy-lib" data-id="' + n.id + '">复制 MD</button>' +
+          '<button class="btn btn--ghost" data-act="open" data-id="' + n.id + '">去 B 站</button>' +
+          '<button class="btn btn--primary" data-act="unarch" data-id="' + n.id + '">↩︎ 取出</button>' +
+          '<button class="btn btn--danger" data-act="del" data-id="' + n.id + '">删除</button>'
+        : '<button class="btn btn--ghost" data-act="copy-lib" data-id="' + n.id + '">复制 MD</button>' +
+          '<button class="btn btn--ghost" data-act="open" data-id="' + n.id + '">去 B 站</button>' +
+          '<button class="btn btn--ghost" data-act="arch" data-id="' + n.id + '">📥 归档</button>' +
+          '<button class="btn btn--danger" data-act="del" data-id="' + n.id + '">删除</button>';
+      return videoCardHtml(n, actions, { selectable: !viewArchived, selected: selectedIds.has(n.id) });
     }).join('');
   }
 
@@ -147,9 +157,10 @@ window.BILI = window.BILI || {};
         model: B.ai.getConfig().model
       };
       B.store.saveComp(comp);
+      B.store.archive(notes.map(function (n) { return n.id; }));   // 整理过的素材自动归档
       selectedIds.clear();
       renderLibrary(); renderComps(); updateSelBar();
-      setStatus('整理完成 ✓ 已存入合集', 'ok');
+      setStatus('整理完成 ✓ 已存入合集，原视频已自动归档', 'ok');
       scheduleSync();
       els.compsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
@@ -255,10 +266,13 @@ window.BILI = window.BILI || {};
       if (act === 'del') { if (confirm('删除这个收藏？')) { B.store.remove(id); renderLibrary(); scheduleSync(); } }
       else if (act === 'copy-lib') { copyText(noteToMarkdown(note)); }
       else if (act === 'open') { if (note && note.url) window.open(note.url, '_blank', 'noreferrer'); }
+      else if (act === 'arch') { B.store.archive([id]); selectedIds.delete(id); renderLibrary(); updateSelBar(); scheduleSync(); }
+      else if (act === 'unarch') { B.store.unarchive([id]); renderLibrary(); scheduleSync(); }
     });
     els.exportJson.addEventListener('click', function () { download('bilibili-notes.json', JSON.stringify(B.store.getAll(), null, 2), 'application/json'); });
     els.exportMd.addEventListener('click', function () { download('bilibili-notes.md', B.store.getAll().map(noteToMarkdown).join('\n\n---\n\n'), 'text/markdown'); });
     els.clearAll.addEventListener('click', function () { if (confirm('清空归档库？连接云同步时本地与云端都会删除，不可恢复。')) { B.store.clear(); renderLibrary(); scheduleSync(); } });
+    els.archToggle.addEventListener('click', function () { viewArchived = !viewArchived; activeFilter = 'all'; selectedIds.clear(); renderLibrary(); updateSelBar(); });
     els.settingsBtn.addEventListener('click', toggleSettings);
     els.syncStatus.addEventListener('click', toggleSettings);
     els.syncBtn.addEventListener('click', doSync);
@@ -292,7 +306,7 @@ window.BILI = window.BILI || {};
     ['status','result','urlInput','fetchBtn','catFilter','search','libList','libCount','exportJson','exportMd','clearAll',
      'syncStatus','syncBtn','settingsBtn','settingsPanel','tokenInput','saveTokenBtn','settingsStatus','repoLabel',
      'selBar','selCount','consolidateBtn','addToComp','clearSel','compsCard','compCount','compList',
-     'aiKeyInput','aiModel','saveAiBtn','aiStatus'
+     'aiKeyInput','aiModel','saveAiBtn','aiStatus','archToggle','archCount'
     ].forEach(function (id) { els[id] = document.getElementById(id); });
     bind(); renderLibrary(); renderComps(); updateAIUI(); setStatus(''); updateSyncUI();
     if (B.sync && B.sync.isConfigured()) doSync();

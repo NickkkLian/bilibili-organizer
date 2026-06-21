@@ -27,6 +27,12 @@ window.BILI = window.BILI || {};
   function clear(){ addDeleted(getAll().map(function (n) { return n.id; })); setAll([]); }
   function replaceAll(notes){ setAll(notes || []); }
 
+  // 归档：给指定 id 的视频打 archived 标记并刷新 savedAt（随笔记一起同步、最新者胜）
+  function setArchived(ids, flag){
+    var set = {}; (Array.isArray(ids) ? ids : [ids]).forEach(function (id) { set[id] = 1; });
+    setAll(getAll().map(function (n) { return set[n.id] ? Object.assign({}, n, { archived: !!flag, savedAt: new Date().toISOString() }) : n; }));
+  }
+
   // ---------- 合集（AI 整理出的多视频综合长文） ----------
   var CKEY = 'bili_comps_v1';
   var CDKEY = 'bili_comps_deleted_v1';
@@ -48,6 +54,7 @@ window.BILI = window.BILI || {};
   B.store = {
     getAll: getAll, save: save, remove: remove, clear: clear,
     getDeleted: getDeleted, setDeleted: setDeleted, replaceAll: replaceAll,
+    archive: function (ids) { setArchived(ids, true); }, unarchive: function (ids) { setArchived(ids, false); },
     getComps: getComps, saveComp: saveComp, removeComp: removeComp, replaceAllComps: replaceAllComps,
     getCompsDeleted: getCompsDeleted, setCompsDeleted: setCompsDeleted
   };
