@@ -128,17 +128,13 @@ def _git(args, **kw):
         raise RuntimeError((p.stderr or p.stdout or "").strip()[:400])
     return p
 
-def upsert(note):
+def _sync_once(note):
     work = tempfile.mkdtemp(prefix="bilidb_")
     try:
-        try:
-            _git(["clone", "--depth", "1", "--filter=blob:none", REPO, work])
-        except Exception as e:
-            save_pending(note)
-            raise RuntimeError("拉取 Database 失败（SSH/网络）：" + str(e) + "\n→ 这条含字幕已暂存 local/_pending.json，不会丢；修好后下次抓取会自动补推。")
+        _git(["clone", "--depth", "1", REPO, work])      # 不加 --filter，避免部分克隆推送的坑
         path = os.path.join(work, DATA)
         doc = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {"version": 1, "updatedAt": None, "notes": [], "deleted": []}
-        for n in load_pending() + [note]:           # 先把上次没推成功的一起补上
+        for n in load_pending() + [note]:                # 先把上次没推成功的一起补上
             _apply(doc, n)
         doc["updatedAt"] = now_iso()
         json.dump(doc, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
@@ -146,14 +142,22 @@ def upsert(note):
                "GIT_COMMITTER_NAME": "NickkkLian", "GIT_COMMITTER_EMAIL": "270510432+NickkkLian@users.noreply.github.com"}
         _git(["-C", work, "add", DATA])
         _git(["-C", work, "commit", "-m", "bili local: " + note["title"][:40]], env=env)
-        try:
-            _git(["-C", work, "push", "origin", "HEAD:main"])
-        except Exception as e:
-            save_pending(note)
-            raise RuntimeError("git push 失败：" + str(e) + "\n→ 这条含字幕已暂存 local/_pending.json，不会丢；修好推送权限后下次抓取会自动补推。")
-        clear_pending()                              # 全部推送成功 → 清空暂存
+        _git(["-C", work, "push", "origin", "HEAD:main"])
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+def upsert(note, log=None):
+    last = None
+    for i in range(3):                                   # 重试：每次重新 clone 拿最新 main，化解非快进 / 瞬时网络
+        try:
+            _sync_once(note); clear_pending(); return
+        except Exception as e:
+            last = e
+            if log and i < 2: log(f"推送第 {i + 1} 次失败，重试…（{str(e)[:80]}）")
+            if i < 2:
+                import time; time.sleep(2)
+    save_pending(note)
+    raise RuntimeError("git 同步失败（已重试 3 次）：" + str(last) + "\n→ 这条含字幕已暂存 local/_pending.json，不会丢；下次抓取会自动补推。")
 
 def process(url, log):
     idtype, idval = extract_id(url)
@@ -175,7 +179,7 @@ def process(url, log):
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     log("写入 Database/bilibili.json 并推送…")
-    upsert(note)
+    upsert(note, log)
     log("✅ 完成")
     return note
 
