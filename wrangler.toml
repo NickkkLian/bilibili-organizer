@@ -2,6 +2,6 @@
 # Worker 名 → 决定网址 bili-content.<你的子域>.workers.dev
 # 入口 → worker/content-worker.js（取 B 站字幕/AI总结的后端）
 # 密钥 SESSDATA / 变量 TOKEN 不放这里，去 CF 控制台 Settings 里加（加密、不进仓库）。
-name = "bili-content"
+name = "bilibili-organizer"
 main = "worker/content-worker.js"
 compatibility_date = "2026-06-01"
