@@ -4,13 +4,14 @@
 window.BILI = window.BILI || {};
 (function (B) {
   'use strict';
+  var T = (window.BILI.i18n && window.BILI.i18n.T) || function(zh,en){return zh;};
 
   var KEY = 'bili_ai_config';
   var DEFAULT_MODEL = 'claude-opus-4-8';
   var MODELS = [
-    { id: 'claude-opus-4-8', name: 'Opus 4.8（最强 · 推荐）' },
-    { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6（更快更省）' },
-    { id: 'claude-haiku-4-5', name: 'Haiku 4.5（最便宜）' }
+    { id: 'claude-opus-4-8', name: 'Opus 4.8（最强 · 推荐）', nameEn: 'Opus 4.8 (Best · Recommended)' },
+    { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6（更快更省）', nameEn: 'Sonnet 4.6 (Faster & cheaper)' },
+    { id: 'claude-haiku-4-5', name: 'Haiku 4.5（最便宜）', nameEn: 'Haiku 4.5 (Cheapest)' }
   ];
 
   function getConfig() {
@@ -76,8 +77,8 @@ window.BILI = window.BILI || {};
   // vids: [{title, author, tname, transcript, url}]；existing: 已有合集对象（追加整合时传入）或 null
   async function consolidate(vids, existing) {
     var cfg = getConfig();
-    if (!cfg.apiKey) throw new Error('未设置 AI 令牌');
-    if (!vids || !vids.length) throw new Error('没有可整理的视频');
+    if (!cfg.apiKey) throw new Error(T('未设置 AI 令牌','AI token not set'));
+    if (!vids || !vids.length) throw new Error(T('没有可整理的视频','No videos to consolidate'));
 
     var userText = '';
     if (existing) {
@@ -108,21 +109,21 @@ window.BILI = window.BILI || {};
         },
         body: JSON.stringify(body)
       });
-    } catch (e) { throw new Error('网络错误：' + e.message); }
+    } catch (e) { throw new Error(T('网络错误：','Network error: ') + e.message); }
 
-    if (r.status === 401) throw new Error('API 令牌无效或已过期 (401)');
-    if (r.status === 400) { var t = await r.text().catch(function () { return ''; }); throw new Error('请求被拒 (400) ' + t.slice(0, 160)); }
-    if (r.status === 429) throw new Error('触发频率限制 (429)，请稍后再试');
-    if (!r.ok) throw new Error('请求失败 HTTP ' + r.status);
+    if (r.status === 401) throw new Error(T('API 令牌无效或已过期 (401)','API token invalid or expired (401)'));
+    if (r.status === 400) { var t = await r.text().catch(function () { return ''; }); throw new Error(T('请求被拒 (400) ','Request rejected (400) ') + t.slice(0, 160)); }
+    if (r.status === 429) throw new Error(T('触发频率限制 (429)，请稍后再试','Rate limited (429), please retry later'));
+    if (!r.ok) throw new Error(T('请求失败 HTTP ','Request failed HTTP ') + r.status);
 
     var j = await r.json();
-    if (j.stop_reason === 'refusal') throw new Error('模型拒绝了该请求');
+    if (j.stop_reason === 'refusal') throw new Error(T('模型拒绝了该请求','The model refused the request'));
     var textBlock = (j.content || []).filter(function (b) { return b.type === 'text'; })[0];
-    if (!textBlock) throw new Error('未返回内容' + (j.stop_reason === 'max_tokens' ? '（输出过长，请减少视频数量）' : ''));
+    if (!textBlock) throw new Error(T('未返回内容','No content returned') + (j.stop_reason === 'max_tokens' ? T('（输出过长，请减少视频数量）',' (output too long, reduce the number of videos)') : ''));
     var data;
     try { data = JSON.parse(textBlock.text); }
-    catch (e) { throw new Error('解析返回的 JSON 失败'); }
-    if (!data || !Array.isArray(data.sections)) throw new Error('返回结构不完整');
+    catch (e) { throw new Error(T('解析返回的 JSON 失败','Failed to parse returned JSON')); }
+    if (!data || !Array.isArray(data.sections)) throw new Error(T('返回结构不完整','Returned structure incomplete'));
     return data;
   }
 

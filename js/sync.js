@@ -4,6 +4,7 @@
 window.BILI = window.BILI || {};
 (function (B) {
   'use strict';
+  var T = (window.BILI.i18n && window.BILI.i18n.T) || function(zh,en){return zh;};
 
   var PHA_KEY = 'pha-config';
   var DATA_PATH = 'bilibili.json';
@@ -32,15 +33,15 @@ window.BILI = window.BILI || {};
 
   async function validate(token){
     var r = await fetch('https://api.github.com/user', { headers: headers(token) });
-    if (r.status === 401) throw new Error('令牌无效或已过期 (401)');
-    if (!r.ok) throw new Error('校验失败 HTTP ' + r.status);
+    if (r.status === 401) throw new Error(T('令牌无效或已过期 (401)','Token invalid or expired (401)'));
+    if (!r.ok) throw new Error(T('校验失败 HTTP ','Validation failed HTTP ') + r.status);
     return (await r.json()).login;
   }
   async function getFile(cfg){
     var r = await fetch(contentsUrl(cfg), { headers: headers(cfg.token) });
     if (r.status === 404) return { doc: emptyDoc(), sha: null, missing: true };
-    if (r.status === 401) throw new Error('令牌无效或已过期 (401)');
-    if (!r.ok) throw new Error('读取失败 HTTP ' + r.status);
+    if (r.status === 401) throw new Error(T('令牌无效或已过期 (401)','Token invalid or expired (401)'));
+    if (!r.ok) throw new Error(T('读取失败 HTTP ','Read failed HTTP ') + r.status);
     var j = await r.json(), doc;
     try { doc = normalizeDoc(JSON.parse(b64decode(j.content))); } catch (e) { doc = emptyDoc(); }
     return { doc: doc, sha: j.sha, missing: false };
@@ -49,7 +50,7 @@ window.BILI = window.BILI || {};
     var body = { message: message || 'bilibili-organizer sync', content: b64encode(JSON.stringify(doc, null, 2)) };
     if (sha) body.sha = sha;
     var r = await fetch(contentsUrl(cfg), { method: 'PUT', headers: headers(cfg.token), body: JSON.stringify(body) });
-    if (!r.ok) throw new Error('写入失败 HTTP ' + r.status + (r.status === 409 ? '（版本冲突）' : ''));
+    if (!r.ok) throw new Error(T('写入失败 HTTP ','Write failed HTTP ') + r.status + (r.status === 409 ? T('（版本冲突）',' (version conflict)') : ''));
     return r.json();
   }
   function mergeList(aItems, bItems, aDel, bDel){
@@ -80,7 +81,7 @@ window.BILI = window.BILI || {};
 
   async function sync(){
     var cfg = getConfig();
-    if (!isConfigured(cfg)) throw new Error('未连接：请先在设置里填入令牌');
+    if (!isConfigured(cfg)) throw new Error(T('未连接：请先在设置里填入令牌','Not connected: enter a token in settings first'));
     var remote = await getFile(cfg);
     var merged = mergeDocs(remote.doc, localDoc());
     if (remote.missing || sig(remote.doc) !== sig(merged)) {

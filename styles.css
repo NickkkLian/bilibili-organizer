@@ -7,7 +7,8 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Segoe UI,Roboto,sans-serif}
-.hero{padding:34px 20px 16px;text-align:center}
+.hero{padding:34px 20px 16px;text-align:center;position:relative}
+.lang-btn{position:absolute;top:14px;right:16px;padding:6px 12px;font-size:13px;min-width:46px}
 .hero h1{margin:0;font-size:26px}
 .hero .sub{margin:6px 0 0;color:var(--muted);font-size:14px}
 .wrap{max-width:880px;margin:0 auto;padding:8px 16px 40px}

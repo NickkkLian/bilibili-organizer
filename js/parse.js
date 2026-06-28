@@ -3,6 +3,7 @@
 window.BILI = window.BILI || {};
 (function (B) {
   'use strict';
+  var T = (window.BILI.i18n && window.BILI.i18n.T) || function(zh,en){return zh;};
 
   function extractId(input){
     var s = String(input || '').trim();
@@ -19,10 +20,10 @@ window.BILI = window.BILI || {};
     return new Promise(function (resolve, reject) {
       var cb = '__biliJP_' + Date.now() + Math.floor(Math.random() * 1e6);
       var s = document.createElement('script');
-      var to = setTimeout(function () { cleanup(); reject(new Error('请求超时')); }, 15000);
+      var to = setTimeout(function () { cleanup(); reject(new Error(T('请求超时','Request timed out'))); }, 15000);
       function cleanup(){ clearTimeout(to); try { delete window[cb]; } catch (e) { window[cb] = undefined; } if (s.parentNode) s.parentNode.removeChild(s); }
       window[cb] = function (data) { cleanup(); resolve(data); };
-      s.onerror = function () { cleanup(); reject(new Error('加载失败（网络或被拦截）')); };
+      s.onerror = function () { cleanup(); reject(new Error(T('加载失败（网络或被拦截）','Load failed (network or blocked)'))); };
       s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'jsonp=jsonp&callback=' + cb;
       document.head.appendChild(s);
     });
@@ -33,10 +34,10 @@ window.BILI = window.BILI || {};
 
   async function fetchVideo(rawInput){
     var idObj = extractId(rawInput);
-    if (!idObj) throw new Error('没识别到 B 站视频（需要 BV 号或 bilibili.com/video/BV… 链接）');
+    if (!idObj) throw new Error(T('没识别到 B 站视频（需要 BV 号或 bilibili.com/video/BV… 链接）','No Bilibili video detected (need a BV id or bilibili.com/video/BV… link)'));
     var api = 'https://api.bilibili.com/x/web-interface/view?' + (idObj.type === 'bvid' ? 'bvid=' : 'aid=') + encodeURIComponent(idObj.id);
     var res = await jsonp(api);
-    if (!res || res.code !== 0) throw new Error('B 站接口：' + ((res && res.message) || '未知错误') + '（短链请改用完整 bilibili.com/video/BV… 链接）');
+    if (!res || res.code !== 0) throw new Error(T('B 站接口：','Bilibili API: ') + ((res && res.message) || T('未知错误','unknown error')) + T('（短链请改用完整 bilibili.com/video/BV… 链接）',' (for short links, use the full bilibili.com/video/BV… link)'));
     var d = res.data || {}, stat = d.stat || {};
     return {
       bvid: d.bvid || (idObj.type === 'bvid' ? idObj.id : ''),
