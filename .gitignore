@@ -4,3 +4,10 @@ __pycache__/
 
 # 本地暂存（push 失败时保住字幕，勿入库）
 _pending.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
