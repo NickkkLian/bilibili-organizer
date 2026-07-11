@@ -10,7 +10,7 @@ window.BILI = window.BILI || {};
   var DEFAULT_MODEL = 'claude-opus-4-8';
   var MODELS = [
     { id: 'claude-opus-4-8', name: 'Opus 4.8（最强 · 推荐）', nameEn: 'Opus 4.8 (Best · Recommended)' },
-    { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6（更快更省）', nameEn: 'Sonnet 4.6 (Faster & cheaper)' },
+    { id: 'claude-sonnet-5', name: 'Sonnet 5（更快更省）', nameEn: 'Sonnet 5 (Faster & cheaper)' },
     { id: 'claude-haiku-4-5', name: 'Haiku 4.5（最便宜）', nameEn: 'Haiku 4.5 (Cheapest)' }
   ];
 
